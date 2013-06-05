@@ -29,6 +29,7 @@ array_insert($GLOBALS['BE_MOD'], (array_search('accounts', array_keys($GLOBALS['
 				'tl_metamodel_attribute',
 				'tl_metamodel_filter',
 				'tl_metamodel_filtersetting',
+				'tl_metamodel_searchable_pages',
 				'tl_metamodel_rendersettings',
 				'tl_metamodel_rendersetting',
 				'tl_metamodel_dca',
@@ -142,6 +143,7 @@ $GLOBALS['TL_HOOKS']['loadDataContainer'][]      = array('TableMetaModelFilterSe
 $GLOBALS['TL_HOOKS']['loadDataContainer'][]      = array('TableMetaModelRenderSetting', 'createDataContainer');
 $GLOBALS['TL_HOOKS']['loadDataContainer'][]      = array('TableMetaModelDcaSetting', 'createDataContainer');
 $GLOBALS['TL_HOOKS']['outputFrontendTemplate'][] = array('MetaModelFrontendFilter', 'generateClearAll');
+$GLOBALS['TL_HOOKS']['getSearchablePages'][]     = array('TableMetaModelSearchablePages', 'addSearchablePages');
 
 // Dependencies we need.
 // Mapping: extension folder => ER name.

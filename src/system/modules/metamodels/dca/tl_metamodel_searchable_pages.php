@@ -9,7 +9,6 @@
  * @package	   MetaModels
  * @subpackage Backend
  * @author     Christian Schiffler <c.schiffler@cyberspectrum.de>
- * @author     Stefan Heimes <cms@men-at-work.de>
  * @copyright  The MetaModels team.
  * @license    LGPL.
  * @filesource
@@ -19,7 +18,7 @@
  * Table tl_metamodel_attribute
  */
 
-$GLOBALS['TL_DCA']['tl_metamodel_filter'] = array
+$GLOBALS['TL_DCA']['tl_metamodel_searchable_pages'] = array
 (
 	'config' => array
 	(
@@ -83,19 +82,7 @@ $GLOBALS['TL_DCA']['tl_metamodel_filter'] = array
 				'label'               => &$GLOBALS['TL_LANG']['tl_metamodel_filter']['show'],
 				'href'                => 'act=show',
 				'icon'                => 'show.gif'
-			),
-			'settings' => array
-			(
-				'label'               => &$GLOBALS['TL_LANG']['tl_metamodel_filter']['settings'],
-				'href'                => 'table=tl_metamodel_filtersetting',
-				'icon'                => 'system/modules/metamodels/html/filter_setting.png',
-			),
-			'searchablePages' => array
-			(
-				'label'               => &$GLOBALS['TL_LANG']['tl_metamodel_filter']['searchablePages'],
-				'href'                => 'table=tl_metamodel_searchable_pages',
-				'icon'                => 'system/modules/metamodels/html/filter_setting.png',
-			),
+			)
 		)
 	),
 
@@ -103,7 +90,8 @@ $GLOBALS['TL_DCA']['tl_metamodel_filter'] = array
 	(
 		'default' => array
 		(
-			'title' => array('name')
+			'title' => array('name'),
+			'parameter' => array('parameter'),
 		),
 	),
 
@@ -112,11 +100,69 @@ $GLOBALS['TL_DCA']['tl_metamodel_filter'] = array
 	(
 		'name' => array
 		(
-			'label'                   => &$GLOBALS['TL_LANG']['tl_metamodel_filter']['name'],
+			'label'                   => &$GLOBALS['TL_LANG']['tl_metamodel_searchable_pages']['name'],
 			'exclude'                 => true,
 			'inputType'               => 'text',
 			'eval'                    => array('mandatory'=>true, 'maxlength'=>255, 'tl_class'=>'w50')
 		),
+		
+		'parameter' =>  array
+		(
+			'label'         => &$GLOBALS['TL_LANG']['tl_theme']['parameter'],
+			'exclude'       => true,
+			'inputType'     => 'multiColumnWizard',
+			'eval'          => array
+			(
+				'columnFields' => array
+				(
+					'parametersettings' =>  array
+					(
+						'label'         => &$GLOBALS['TL_LANG']['tl_theme']['parametersettings'],
+						'exclude'       => true,
+						'inputType'     => 'multiColumnWizard',
+						'eval'          => array
+						(
+							'columnFields' => array
+							(
+								'type' => array
+								(
+									'label'                   => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['type'],
+									'exclude'                 => true,
+									'inputType'               => 'select',
+									'options_callback'        => array('TableMetaModelFilterSetting', 'getSettingTypes'),
+									'reference'               => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['typenames'],
+									'eval'                    => array
+									(
+										'doNotSaveEmpty'      => true,
+										'includeBlankOption'  => true,
+										'mandatory'           => true,
+										'tl_class'            => 'w50',
+//										'chosen'              => true
+									),
+								),
+
+								'types' => array
+								(
+									'label'                   => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['type'],
+									'exclude'                 => true,
+									'inputType'               => 'select',
+									'options_callback'        => array('TableMetaModelFilterSetting', 'getSettingTypes'),
+									'reference'               => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['typenames'],
+									'eval'                    => array
+									(
+										'doNotSaveEmpty'      => true,										
+										'includeBlankOption'  => true,
+										'mandatory'           => true,
+										'tl_class'            => 'w50',
+//										'chosen'              => true
+									),
+								),
+							)
+						)
+					)
+				)
+			)
+		)
 	)
 );
 
