@@ -91,7 +91,7 @@ $GLOBALS['TL_DCA']['tl_metamodel_searchable_pages'] = array
 		'default' => array
 		(
 			'title' => array('name'),
-			'parameter' => array('parameter'),
+			'parameter' => array('rendersetting', 'parameter'),
 		),
 	),
 
@@ -106,6 +106,40 @@ $GLOBALS['TL_DCA']['tl_metamodel_searchable_pages'] = array
 			'eval'                    => array('mandatory'=>true, 'maxlength'=>255, 'tl_class'=>'w50')
 		),
 		
+		'type' => array
+		(
+			'label'                   => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['type'],
+			'exclude'                 => true,
+			'inputType'               => 'select',
+			'options_callback'        => array('TableMetaModelSearchablePages', 'getValues'),
+			'reference'               => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['typenames'],
+			'eval'                    => array
+			(
+				'doNotSaveEmpty'      => true,
+				'includeBlankOption'  => true,
+//										'mandatory'           => true,
+				'tl_class'            => 'w50',
+//										'chosen'              => true
+			),
+		),
+		
+		'rendersetting' => array
+		(
+			'label'                   => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['rendersetting'],
+			'exclude'                 => true,
+			'inputType'               => 'select',
+			'options_callback'        => array('TableMetaModelSearchablePages', 'getRendersettings'),
+			'reference'               => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['typenames'],
+			'eval'                    => array
+			(
+				'doNotSaveEmpty'      => true,
+				'includeBlankOption'  => true,
+//										'mandatory'           => true,
+				'tl_class'            => 'w50',
+//										'chosen'              => true
+			),
+		),
+		
 		'parameter' =>  array
 		(
 			'label'         => &$GLOBALS['TL_LANG']['tl_theme']['parameter'],
@@ -115,7 +149,24 @@ $GLOBALS['TL_DCA']['tl_metamodel_searchable_pages'] = array
 			(
 				'columnFields' => array
 				(
-					'parametersettings' =>  array
+					'parameter' => array
+					(
+						'label'                   => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['type'],
+						'exclude'                 => true,
+						'inputType'               => 'select',
+						'options_callback'        => array('TableMetaModelSearchablePages', 'getParameter'),
+						'reference'               => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['typenames'],
+						'eval'                    => array
+						(
+							'doNotSaveEmpty'      => true,
+							'includeBlankOption'  => true,
+//							'mandatory'           => true,
+							'tl_class'            => 'w50',
+//										'chosen'              => true
+						),
+					),					
+					
+					'values' =>  array
 					(
 						'label'         => &$GLOBALS['TL_LANG']['tl_theme']['parametersettings'],
 						'exclude'       => true,
@@ -129,30 +180,13 @@ $GLOBALS['TL_DCA']['tl_metamodel_searchable_pages'] = array
 									'label'                   => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['type'],
 									'exclude'                 => true,
 									'inputType'               => 'select',
-									'options_callback'        => array('TableMetaModelFilterSetting', 'getSettingTypes'),
+									'options_callback'        => array('TableMetaModelSearchablePages', 'getValues'),
 									'reference'               => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['typenames'],
 									'eval'                    => array
 									(
 										'doNotSaveEmpty'      => true,
 										'includeBlankOption'  => true,
-										'mandatory'           => true,
-										'tl_class'            => 'w50',
-//										'chosen'              => true
-									),
-								),
-
-								'types' => array
-								(
-									'label'                   => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['type'],
-									'exclude'                 => true,
-									'inputType'               => 'select',
-									'options_callback'        => array('TableMetaModelFilterSetting', 'getSettingTypes'),
-									'reference'               => &$GLOBALS['TL_LANG']['tl_metamodel_filtersetting']['typenames'],
-									'eval'                    => array
-									(
-										'doNotSaveEmpty'      => true,										
-										'includeBlankOption'  => true,
-										'mandatory'           => true,
+//										'mandatory'           => true,
 										'tl_class'            => 'w50',
 //										'chosen'              => true
 									),

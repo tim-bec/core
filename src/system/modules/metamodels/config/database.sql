@@ -231,7 +231,9 @@ CREATE TABLE `tl_metamodel_searchable_pages` (
 -- corresponding meta model
   `pid` int(10) unsigned NOT NULL default '0',
   `tstamp` int(10) unsigned NOT NULL default '0',
--- parameters or searchable pages
+-- rendersettings for the jumpTo generation.
+  `rendersetting` int(10) unsigned NOT NULL default '0',
+-- parameters of searchable pages
   `parameter` blob NULL,
 -- human readable name of the filter setting for internal use only.
   `name` varchar(64) NOT NULL default '',

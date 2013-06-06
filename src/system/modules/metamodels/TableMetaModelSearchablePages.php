@@ -36,6 +36,191 @@ class TableMetaModelSearchablePages extends Backend
 		parent::__construct();
 	}
 
+	////////////////////////////////////////////////////////////////////////////
+	// Callbacks
+	////////////////////////////////////////////////////////////////////////////
+
+	/**
+	 * Try to get the current parent Filtersetting.
+	 * 
+	 * @return null/array
+	 */
+	protected function getFilterSetting($intPid = null)
+	{
+		$intCurrentID = Input::getInstance()->get('id');
+		$intCurrentPID = Input::getInstance()->get('pid');
+		$intFilterID = '';
+
+		// If set by param, use it.
+		if (!is_null($intPid))
+		{
+			$intFilterID = $intPid;
+		}
+		// Get the parent ID.
+		else if (!empty($intCurrentID))
+		{
+			$objCurrentRow = Database::getInstance()
+					->prepare('SELECT * FROM tl_metamodel_searchable_pages WHERE id=?')
+					->execute($intCurrentID);
+
+			// Check if we have data.
+			if ($objCurrentRow->numRows == 0)
+			{
+				return null;
+			}
+
+			$intFilterID = $objCurrentRow->pid;
+		}
+		else if (!empty($intCurrentPID))
+		{
+			$intFilterID = $intCurrentPID;
+		}
+		else
+		{
+			return null;
+		}
+
+		return MetaModelFilterSettingsFactory::byId($intFilterID);
+	}
+
+	/**
+	 * Get a list with all parameters. 
+	 * 
+	 * @param mixed $objDC
+	 * 
+	 * @return array
+	 */
+	public function getParameter($objDC)
+	{
+		$arrReturn = array();
+
+		$objFilter = $this->getFilterSetting();
+
+		if (is_null($objFilter))
+		{
+			return $arrReturn;
+		}
+
+		foreach ($objFilter->getParameterFilterNames() as $strParameter => $strDesricption)
+		{
+			$arrReturn[$strParameter] = vsprintf('%s (Param.: %s)', array($strDesricption, $strParameter));
+		}
+
+		return $arrReturn;
+	}
+
+	/**
+	 * Get a list with all parameters and there fitting values.
+	 * 
+	 * @param mixed $objDC
+	 * 
+	 * @return array
+	 */
+	public function getValues($objDC)
+	{
+		$arrReturn = array();
+
+		// Get filtersettings or return an empty array.
+		$objFilter = $this->getFilterSetting();
+		if (is_null($objFilter))
+		{
+			return $arrReturn;
+		}
+
+		// Get elements and more.
+		$objMM = $objFilter->getMetaModel();
+		$arrParameters = $objFilter->getParameters();
+		$arrAttributes = $objFilter->getReferencedAttributes();
+		$arrParameterFilterNames = $objFilter->getParameterFilterNames();
+
+		foreach ($arrParameters as $intKey => $strPrameter)
+		{
+			// Get elements and more.
+			$arrFilterValues = array();
+			$strFilter = vsprintf('%s (Param.: %s)', array($arrParameterFilterNames[$strPrameter], $strPrameter));
+			$arrAttribute = $objMM->getAttribute($arrAttributes[$intKey]);
+			$arrFilterOption = $arrAttribute->getFilterOptions(null, true);
+			
+			// If we have a checkbox write 'True' or 'False'. 
+			if (in_array($arrAttribute->get('type'), array('checkbox')))
+			{
+				foreach ($arrFilterOption as $mixFilterKey => $mixFilterValue)
+				{
+					if ($mixFilterValue)
+					{
+						$arrFilterValues[$mixFilterKey] = 'True';
+					}
+					else
+					{
+						$arrFilterValues[$mixFilterKey] = 'False';
+					}
+				}
+			}
+			// Else just create a normal array.
+			else
+			{
+				foreach ($arrFilterOption as $mixFilterKey => $mixFilterValue)
+				{
+					$arrFilterValues[$mixFilterKey] = $mixFilterValue;
+				}
+			}
+
+			// Merge or create
+			if (is_array($arrReturn[$strFilter]))
+			{
+				$arrReturn[$strFilter] = array_merge($arrReturn[$strFilter], $arrFilterValues);
+			}
+			else
+			{
+				$arrReturn[$strFilter] = $arrFilterValues;
+			}
+		}
+
+		return $arrReturn;
+	}
+
+	/**
+	 * Get a list with all rendersettings for the current filter.
+	 * 
+	 * @param mixed $objDC
+	 * 
+	 * @return array
+	 */
+	public function getRendersettings($objDC)
+	{
+		$arrReturn = array();
+
+		// Get filtersettings or return an empty array.
+		$objFilter = $this->getFilterSetting();
+		if (is_null($objFilter))
+		{
+			return $arrReturn;
+		}
+
+		$objMetaModel = $objFilter->getMetaModel();
+		$intMMID = $objMetaModel->get('id');
+
+		$objRenderSettings = Database::getInstance()
+				->prepare('SELECT * FROM tl_metamodel_rendersettings WHERE pid=?')
+				->execute($intMMID);
+
+		if ($objRenderSettings->numRows == 0)
+		{
+			return $arrReturn;
+		}
+
+		while ($objRenderSettings->next())
+		{
+			$arrReturn[$objRenderSettings->id] = vsprintf('%s - %s', array($objMetaModel->get('name'), $objRenderSettings->name));
+		}
+
+		return $arrReturn;
+	}
+
+	////////////////////////////////////////////////////////////////////////////
+	// Hook
+	////////////////////////////////////////////////////////////////////////////
+
 	/**
 	 * Add all pages from MM lister/reader to the search index for the contao 
 	 * search and all sitemaps.
@@ -49,6 +234,8 @@ class TableMetaModelSearchablePages extends Backend
 	 */
 	public function addSearchablePages($arrPages, $intRoot = null, $blnSitemap = false, $strLanguage = null)
 	{
+		$strMasterLanguage = $GLOBALS['TL_LANGUAGE'];
+		
 		// Neues Teil!
 		$objSearchablePages = Database::getInstance()
 				->prepare('SELECT * FROM tl_metamodel_searchable_pages')
@@ -57,21 +244,18 @@ class TableMetaModelSearchablePages extends Backend
 		// Check if we have list.
 		if ($objSearchablePages->numRows == 0)
 		{
-			die('no lists');
 			return $arrPages;
 		}
 
 		while ($objSearchablePages->next())
 		{
-			// Search for the MM id.
+			// Search for the MM id and load it
 			$intMMId = $this->getMMId($objSearchablePages->pid);
 			if ($intMMId == null)
 			{
 				$this->addError('MM', 'Could not find the MM id from the filter with id: ' . $objSearchablePages->pid);
 				continue;
 			}
-
-			// Load the MM.
 			$objMetaModel = MetaModelFactory::byId($intMMId);
 			if ($objMetaModel == null)
 			{
@@ -80,76 +264,101 @@ class TableMetaModelSearchablePages extends Backend
 			}
 
 			// Load the render settings.
-			$objRenderSettings = MetaModelRenderSettingsFactory::byId($objMetaModel, 1);
+			$objRenderSettings = MetaModelRenderSettingsFactory::byId($objMetaModel, $objSearchablePages->rendersetting);
 			if ($objRenderSettings == null)
 			{
 				$this->addError('Rendersettings', 'Could not find the rendersettings with id: ' . 1);
 				continue;
 			}
 
-			// User the all to jump to if we have no language.
-			if ($strLanguage == null && $this->containsLanguage($objRenderSettings->get('jumpTo'), 'xx'))
+			$arrLanguages = deserialize($objRenderSettings->get('jumpTo'));
+						
+			// Load the filter.
+			$objFilter = $this->getFilterSetting($objSearchablePages->pid);
+			$arrParametersNames = $objFilter->getParameters();
+			$arrAttributesNames = $objFilter->getReferencedAttributes();
+
+			// Okay load the parameters, build all combinations and build the jump to.
+			$arrParameters = deserialize($objSearchablePages->parameter);
+			
+			foreach ($arrLanguages as $arrLanguage)
 			{
-				// ToDo
-			}
-			else if ($strLanguage == null)
-			{
-				$this->addError('Language', 'Could not find the jump to for all languages.');
-				continue;
-			}
-			// Use current language.
-			else if ($strLanguage != null && $this->containsLanguage($objRenderSettings->get('jumpTo'), $strLanguage))
-			{
-				// ToDo
-			}
-			else if ($strLanguage != null)
-			{
-				$this->addError('Language', 'Could not find the jump to for the language ' . $strLanguage);
-				continue;
+				// check if we have a jump to. 
+				if(empty($arrLanguage['value']))
+				{
+					continue;
+				}
+				
+				// Set current language to the jump to.
+				$GLOBALS['TL_LANGUAGE'] = $arrLanguage['langcode'];				
+				
+				foreach ($this->buildAllCombinations($arrParameters) as $arrData)
+				{
+					$objItemFilter = $objMetaModel->getEmptyFilter();
+					$objFilter->addRules($objItemFilter, $arrData);
+
+					/** var IMetaModelItems $objItems */
+					$objItems = $objMetaModel->findByFilter($objItemFilter);
+
+					foreach ($objItems as $objItem)
+					{						
+						/** var MetaModelItem $objItem */
+						$arrJumpTo = $objItem->buildJumpToLink($objRenderSettings);
+						// FIXME: determine real url as we might have a domain specified in the root page.
+						$arrPages[] = Environment::getInstance()->base . $arrJumpTo['url'];
+						
+					}
+				}
 			}
 		}
-
-		var_dump($arrPages);
-		var_dump($intRoot);
-		var_dump($blnSitemap);
-		var_dump($strLanguage);
-		var_dump($this->arrErrorLogs);
-		die();
+		
+		$GLOBALS['TL_LANGUAGE'] = $strMasterLanguage;
 
 		return $arrPages;
 	}
 
-	/**
-	 * generate an url determined by the given params and configured jumpTo page.
-	 *
-	 * @param array $arrParams the URL parameters to use.
-	 *
-	 * @return string the generated URL.
-	 *
-	 */
-	protected function getJumpToUrl($arrJumpTo, $arrParams)
+	protected function buildAllCombinations($arrParam, $intCurrentKey = 0)
 	{
-		// Get jump to array.
-		foreach ($arrJumpTo as $intKey => $arrJumpTo)
-		{
-			// Check if we have the right language tags.
-			if ($arrJumpTo['langcode'] != 'xx' && $strLanguage != null && $strLanguage != $arrJumpTo['langcode'])
-			{
-				continue;
-			}
+		$arrReturn = array();
+		$arrSubValues = array();
 
-			// ToDo build jumpTo;
-			var_dump($this->getJumpToUrl($arrJumpTo, array()));
+		// Build all other combinations first.
+		if (key_exists($intCurrentKey + 1, $arrParam))
+		{
+			$arrSubValues = $this->buildAllCombinations($arrParam, $intCurrentKey + 1);
 		}
 
+		if (key_exists('values', $arrParam[$intCurrentKey]) && !empty($arrParam[$intCurrentKey]['values']))
+		{
+			foreach ($arrParam[$intCurrentKey]['values'] as $mixKey => $mixValue)
+			{
+				// If empty we could not find the attribute so go to the next one.
+				if (!$arrParam[$intCurrentKey]['parameter'])
+				{
+					continue;
+				}
 
-//		$strReturn = array();
-//		var_dump($arrJumpTo);
-//		var_dump($arrParams);
-//		die();
+				if (is_array($arrSubValues) && !empty($arrSubValues))
+				{
+					foreach ($arrSubValues as $arrValue)
+					{
+						$arrReturn[] = array_merge(array(
+							$arrParam[$intCurrentKey]['parameter'] => $mixValue['type']
+								), $arrValue);
+					}
+				}
+				else
+				{
+					$arrReturn[] = array($arrParam[$intCurrentKey]['parameter'] => $mixValue['type']);
+				}
+			}
 
-
-		return '';
+			return $arrReturn;
+		}
+		else
+		{
+			return $arrSubValues;
+		}
 	}
 
 	////////////////////////////////////////////////////////////////////////////

@@ -419,7 +419,7 @@ class MetaModelItem implements IMetaModelItem
 		// Get the right jumpto.
 		$strDesiredLanguage  = $this->getMetaModel()->getActiveLanguage();
 		$strFallbackLanguage = $this->getMetaModel()->getFallbackLanguage();
-
+		
 		$intJumpTo         = 0;
 		$intFilterSettings = 0;
 
@@ -482,7 +482,7 @@ class MetaModelItem implements IMetaModelItem
 		}
 
 		$arrJumpTo['page'] = $intJumpTo;
-		$arrJumpTo['url']  = MetaModelController::generateFrontendUrl($objPage->row(), $strParams);
+		$arrJumpTo['url']  = MetaModelController::generateFrontendUrl($objPage->row(), $strParams, $strDesiredLanguage);
 		return $arrJumpTo;
 	}
 
