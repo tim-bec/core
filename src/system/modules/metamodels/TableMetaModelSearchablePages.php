@@ -26,7 +26,16 @@
 class TableMetaModelSearchablePages extends Backend
 {
 
-	protected $arrErrorLogs = array();
+	////////////////////////////////////////////////////////////////////////////
+	// Vars
+	////////////////////////////////////////////////////////////////////////////
+
+	protected $arrErrorLogs	 = array();
+	protected $arrSiteBase	 = array();
+
+	////////////////////////////////////////////////////////////////////////////
+	// Core
+	////////////////////////////////////////////////////////////////////////////
 
 	/**
 	 * Class constructor, imports the Backend user.
@@ -39,49 +48,6 @@ class TableMetaModelSearchablePages extends Backend
 	////////////////////////////////////////////////////////////////////////////
 	// Callbacks
 	////////////////////////////////////////////////////////////////////////////
-
-	/**
-	 * Try to get the current parent Filtersetting.
-	 * 
-	 * @return null/array
-	 */
-	protected function getFilterSetting($intPid = null)
-	{
-		$intCurrentID = Input::getInstance()->get('id');
-		$intCurrentPID = Input::getInstance()->get('pid');
-		$intFilterID = '';
-
-		// If set by param, use it.
-		if (!is_null($intPid))
-		{
-			$intFilterID = $intPid;
-		}
-		// Get the parent ID.
-		else if (!empty($intCurrentID))
-		{
-			$objCurrentRow = Database::getInstance()
-					->prepare('SELECT * FROM tl_metamodel_searchable_pages WHERE id=?')
-					->execute($intCurrentID);
-
-			// Check if we have data.
-			if ($objCurrentRow->numRows == 0)
-			{
-				return null;
-			}
-
-			$intFilterID = $objCurrentRow->pid;
-		}
-		else if (!empty($intCurrentPID))
-		{
-			$intFilterID = $intCurrentPID;
-		}
-		else
-		{
-			return null;
-		}
-
-		return MetaModelFilterSettingsFactory::byId($intFilterID);
-	}
 
 	/**
 	 * Get a list with all parameters. 
@@ -128,20 +94,21 @@ class TableMetaModelSearchablePages extends Backend
 		}
 
 		// Get elements and more.
-		$objMM = $objFilter->getMetaModel();
-		$arrParameters = $objFilter->getParameters();
-		$arrAttributes = $objFilter->getReferencedAttributes();
+		$objMM					 = $objFilter->getMetaModel();
+		$arrParameters			 = $objFilter->getParameters();
+		$arrAttributes			 = $objFilter->getReferencedAttributes();
 		$arrParameterFilterNames = $objFilter->getParameterFilterNames();
 
 		foreach ($arrParameters as $intKey => $strPrameter)
 		{
 			// Get elements and more.
 			$arrFilterValues = array();
-			$strFilter = vsprintf('%s (Param.: %s)', array($arrParameterFilterNames[$strPrameter], $strPrameter));
-			$arrAttribute = $objMM->getAttribute($arrAttributes[$intKey]);
+			$strFilter		 = vsprintf('%s (Param.: %s)', array($arrParameterFilterNames[$strPrameter], $strPrameter));
+			$arrAttribute	 = $objMM->getAttribute($arrAttributes[$intKey]);
 			$arrFilterOption = $arrAttribute->getFilterOptions(null, true);
-			
-			// If we have a checkbox write 'True' or 'False'. 
+
+			// If we have a checkbox write 'True' or 'False'.
+			// Fixme: Remove support for checkboxen?
 			if (in_array($arrAttribute->get('type'), array('checkbox')))
 			{
 				foreach ($arrFilterOption as $mixFilterKey => $mixFilterValue)
@@ -197,8 +164,8 @@ class TableMetaModelSearchablePages extends Backend
 			return $arrReturn;
 		}
 
-		$objMetaModel = $objFilter->getMetaModel();
-		$intMMID = $objMetaModel->get('id');
+		$objMetaModel	 = $objFilter->getMetaModel();
+		$intMMID		 = $objMetaModel->get('id');
 
 		$objRenderSettings = Database::getInstance()
 				->prepare('SELECT * FROM tl_metamodel_rendersettings WHERE pid=?')
@@ -211,7 +178,7 @@ class TableMetaModelSearchablePages extends Backend
 
 		while ($objRenderSettings->next())
 		{
-			$arrReturn[$objRenderSettings->id] = vsprintf('%s - %s', array($objMetaModel->get('name'), $objRenderSettings->name));
+			$arrReturn[$objRenderSettings->id] = $objRenderSettings->name;
 		}
 
 		return $arrReturn;
@@ -234,8 +201,12 @@ class TableMetaModelSearchablePages extends Backend
 	 */
 	public function addSearchablePages($arrPages, $intRoot = null, $blnSitemap = false, $strLanguage = null)
 	{
-		$strMasterLanguage = $GLOBALS['TL_LANGUAGE'];
-		
+		$this->generatePageBaseUrls();
+
+		$strMasterLanguage	 = $GLOBALS['TL_LANGUAGE'];
+		$arrNewPages		 = array();
+		$arrRemovePages		 = array();
+
 		// Neues Teil!
 		$objSearchablePages = Database::getInstance()
 				->prepare('SELECT * FROM tl_metamodel_searchable_pages')
@@ -247,6 +218,7 @@ class TableMetaModelSearchablePages extends Backend
 			return $arrPages;
 		}
 
+		// Run each value.
 		while ($objSearchablePages->next())
 		{
 			// Search for the MM id and load it
@@ -271,56 +243,112 @@ class TableMetaModelSearchablePages extends Backend
 				continue;
 			}
 
-			$arrLanguages = deserialize($objRenderSettings->get('jumpTo'));
-						
+			$arrRenderSettingJumpTo = deserialize($objRenderSettings->get('jumpTo'));
+
 			// Load the filter.
-			$objFilter = $this->getFilterSetting($objSearchablePages->pid);
-			$arrParametersNames = $objFilter->getParameters();
-			$arrAttributesNames = $objFilter->getReferencedAttributes();
+			$objFilterSetting = $this->getFilterSetting($objSearchablePages->pid);
 
 			// Okay load the parameters, build all combinations and build the jump to.
 			$arrParameters = deserialize($objSearchablePages->parameter);
-			
-			foreach ($arrLanguages as $arrLanguage)
+
+			foreach ($arrRenderSettingJumpTo as $arrSingleJumpTo)
 			{
-				// check if we have a jump to. 
-				if(empty($arrLanguage['value']))
+				// Check if we have a language and jump to. 
+				if (empty($arrSingleJumpTo['value']) || empty($arrSingleJumpTo['filter']))
+				{
+					continue;
+				}
+				
+				// If we have a sitemap just generate the links for the current language.
+				if($blnSitemap && ($arrSingleJumpTo['langcode'] != $strLanguage))
 				{
 					continue;
 				}
 				
 				// Set current language to the jump to.
-				$GLOBALS['TL_LANGUAGE'] = $arrLanguage['langcode'];				
-				
+				$GLOBALS['TL_LANGUAGE'] = $arrSingleJumpTo['langcode'];
+
 				foreach ($this->buildAllCombinations($arrParameters) as $arrData)
 				{
 					$objItemFilter = $objMetaModel->getEmptyFilter();
-					$objFilter->addRules($objItemFilter, $arrData);
+					$objFilterSetting->addRules($objItemFilter, $arrData);
 
 					/** var IMetaModelItems $objItems */
 					$objItems = $objMetaModel->findByFilter($objItemFilter);
-
+					
 					foreach ($objItems as $objItem)
-					{						
+					{
 						/** var MetaModelItem $objItem */
-						$arrJumpTo = $objItem->buildJumpToLink($objRenderSettings);
+						$arrJumpTo		 = $objItem->buildJumpToLink($objRenderSettings);
 						// FIXME: determine real url as we might have a domain specified in the root page.
-						$arrPages[] = Environment::getInstance()->base . $arrJumpTo['url'];
-						
+						$arrNewPages[]	 = $this->getPageBaseUrls($arrSingleJumpTo['langcode']) . $arrJumpTo['url'];
 					}
 				}
 			}
 		}
-		
+
 		$GLOBALS['TL_LANGUAGE'] = $strMasterLanguage;
 
-		return $arrPages;
+		return array_merge($arrPages, $arrNewPages);
 	}
 
+	////////////////////////////////////////////////////////////////////////////
+	// Helper
+	////////////////////////////////////////////////////////////////////////////
+
+	/**
+	 * Get the base url.
+	 * 
+	 * @param string $strLanguage
+	 * 
+	 * @return string
+	 */
+	protected function getPageBaseUrls($strLanguage)
+	{
+		if (key_exists($strLanguage, $this->arrSiteBase))
+		{
+			return $this->arrSiteBase[$strLanguage];
+		}
+		else
+		{
+			return Environment::getInstance()->base;
+		}
+	}
+
+	/**
+	 * Run each root page and get the dns entry or the base url.
+	 */
+	protected function generatePageBaseUrls()
+	{
+		$objRootPages = Database::getInstance()
+				->prepare('SELECT * FROM tl_page Where type=\'root\'')
+				->executeUncached();
+
+		while ($objRootPages->next())
+		{
+			if ($objRootPages->dns != '' && $objRootPages->dns != null)
+			{
+				$arrSiteBase[$objRootPages->language] = $objRootPages->dns;
+			}
+			else
+			{
+				$arrSiteBase[$objRootPages->language] = Environment::getInstance()->base;
+			}
+		}
+	}
+
+	/**
+	 * Build all possible combinations from the parameter values.
+	 * 
+	 * @param array $arrParam
+	 * @param int $intCurrentKey
+	 * 
+	 * @return array
+	 */
 	protected function buildAllCombinations($arrParam, $intCurrentKey = 0)
 	{
-		$arrReturn = array();
-		$arrSubValues = array();
+		$arrReturn		 = array();
+		$arrSubValues	 = array();
 
 		// Build all other combinations first.
 		if (key_exists($intCurrentKey + 1, $arrParam))
@@ -361,10 +389,6 @@ class TableMetaModelSearchablePages extends Backend
 		}
 	}
 
-	////////////////////////////////////////////////////////////////////////////
-	// Helper
-	////////////////////////////////////////////////////////////////////////////
-
 	/**
 	 * Get the MM id.
 	 * 
@@ -388,24 +412,46 @@ class TableMetaModelSearchablePages extends Backend
 	}
 
 	/**
-	 * Check if we have a language in the jump to url.
+	 * Try to get the current parent Filtersetting.
 	 * 
-	 * @param array $arrJumpToRules
-	 * @param string $strLanguage
-	 * 
-	 * @return boolean
+	 * @return null/array
 	 */
-	protected function containsLanguage($arrJumpToRules, $strLanguage)
+	protected function getFilterSetting($intPid = null)
 	{
-		foreach ($arrJumpToRules as $value)
+		$intCurrentID	 = Input::getInstance()->get('id');
+		$intCurrentPID	 = Input::getInstance()->get('pid');
+		$intFilterID	 = '';
+
+		// If set by param, use it.
+		if (!is_null($intPid))
 		{
-			if ($value['langcode'] == $strLanguage)
+			$intFilterID = $intPid;
+		}
+		// Get the parent ID.
+		else if (!empty($intCurrentID))
+		{
+			$objCurrentRow = Database::getInstance()
+					->prepare('SELECT * FROM tl_metamodel_searchable_pages WHERE id=?')
+					->execute($intCurrentID);
+
+			// Check if we have data.
+			if ($objCurrentRow->numRows == 0)
 			{
-				return true;
+				return null;
 			}
 
-			return false;
+			$intFilterID = $objCurrentRow->pid;
 		}
+		else if (!empty($intCurrentPID))
+		{
+			$intFilterID = $intCurrentPID;
+		}
+		else
+		{
+			return null;
+		}
+
+		return MetaModelFilterSettingsFactory::byId($intFilterID);
 	}
 
 	////////////////////////////////////////////////////////////////////////////
@@ -418,4 +464,3 @@ class TableMetaModelSearchablePages extends Backend
 	}
 
 }
-
