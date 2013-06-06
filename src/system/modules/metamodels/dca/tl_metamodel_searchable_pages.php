@@ -23,7 +23,7 @@ $GLOBALS['TL_DCA']['tl_metamodel_searchable_pages'] = array
 	'config' => array
 	(
 		'dataContainer'               => 'General',
-		'ptable'                      => 'tl_metamodel',
+		'ptable'                      => 'tl_metamodel_filter',
 		'switchToEdit'                => false,
 		'enableVersioning'            => false,
 	),
