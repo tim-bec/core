@@ -94,7 +94,7 @@ $GLOBALS['TL_DCA']['tl_metamodel_filter'] = array
 			(
 				'label'               => &$GLOBALS['TL_LANG']['tl_metamodel_filter']['searchablePages'],
 				'href'                => 'table=tl_metamodel_searchable_pages',
-				'icon'                => 'system/modules/metamodels/html/filter_setting.png',
+				'icon'                => 'system/modules/metamodels/html/searchable_pages.png',
 			),
 		)
 	),

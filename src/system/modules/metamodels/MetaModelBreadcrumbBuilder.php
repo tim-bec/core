@@ -76,6 +76,12 @@ class MetaModelBreadcrumbBuilder
 			case 'tl_metamodel_filter':
 				$arrReturn[] = $this->getSecondLevel('tl_metamodel_filter', 'filter.png');
 				break;
+			
+			case 'tl_metamodel_searchable_pages':
+				$arrReturn[] = $this->getThirdLevel('tl_metamodel_searchable_pages', 'tl_metamodel_filter', 'searchable_pages.png');
+			case 'tl_metamodel_filter':
+				$arrReturn[] = $this->getSecondLevel('tl_metamodel_filter', 'filter.png');
+				break;
 
 			default:
 				break;
