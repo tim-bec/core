@@ -286,6 +286,8 @@ class TableMetaModelSearchablePages extends Backend
 				}
 			}
 		}
+		
+		$arrNewPages = array_unique($arrNewPages);
 
 		$GLOBALS['TL_LANGUAGE'] = $strMasterLanguage;
 
