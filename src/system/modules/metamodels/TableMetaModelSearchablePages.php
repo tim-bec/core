@@ -43,6 +43,8 @@ class TableMetaModelSearchablePages extends Backend
 	public function __construct()
 	{
 		parent::__construct();
+
+		$this->loadLanguageFile('tl_metamodel_searchable_pages');
 	}
 
 	////////////////////////////////////////////////////////////////////////////
@@ -82,12 +84,12 @@ class TableMetaModelSearchablePages extends Backend
 	 * 
 	 * @return array
 	 */
-	public function getValues($objDC)
+	public function getValues($objDC, $intPid = null, $blnWithoutAll = false)
 	{
 		$arrReturn = array();
 
 		// Get filtersettings or return an empty array.
-		$objFilter = $this->getFilterSetting();
+		$objFilter = $this->getFilterSetting($intPid);
 		if (is_null($objFilter))
 		{
 			return $arrReturn;
@@ -103,9 +105,18 @@ class TableMetaModelSearchablePages extends Backend
 		{
 			// Get elements and more.
 			$arrFilterValues = array();
-			$strFilter		 = vsprintf('%s (Param.: %s)', array($arrParameterFilterNames[$strPrameter], $strPrameter));
 			$arrAttribute	 = $objMM->getAttribute($arrAttributes[$intKey]);
 			$arrFilterOption = $arrAttribute->getFilterOptions(null, true);
+
+			// Set a system description or a human readable one.
+			if ($blnWithoutAll)
+			{
+				$strFilter = $strPrameter;
+			}
+			else
+			{
+				$strFilter = vsprintf('%s (Param.: %s)', array($arrParameterFilterNames[$strPrameter], $strPrameter));
+			}
 
 			// If we have a checkbox write 'True' or 'False'.
 			// Fixme: Remove support for checkboxen?
@@ -132,6 +143,9 @@ class TableMetaModelSearchablePages extends Backend
 				}
 			}
 
+			// Remove empty values from list.
+			$arrFilterValues = array_filter($arrFilterValues);
+
 			// Merge or create
 			if (is_array($arrReturn[$strFilter]))
 			{
@@ -140,6 +154,15 @@ class TableMetaModelSearchablePages extends Backend
 			else
 			{
 				$arrReturn[$strFilter] = $arrFilterValues;
+			}
+		}
+
+		// Add the "All" to each filter.
+		if (!$blnWithoutAll)
+		{
+			foreach ($arrReturn as $strKey => $arrValues)
+			{
+				$arrReturn[$strKey] = array_merge(array('%%all%%' => $GLOBALS['TL_LANG']['tl_metamodel_searchable_pages']['all']), $arrValues);
 			}
 		}
 
@@ -201,13 +224,15 @@ class TableMetaModelSearchablePages extends Backend
 	 */
 	public function addSearchablePages($arrPages, $intRoot = null, $blnSitemap = false, $strLanguage = null)
 	{
+		// Generate all base urls for each root page.
 		$this->generatePageBaseUrls();
 
-		$strMasterLanguage	 = $GLOBALS['TL_LANGUAGE'];
-		$arrNewPages		 = array();
-		$arrRemovePages		 = array();
+		// Init vars.
+		$strMasterLanguage = $GLOBALS['TL_LANGUAGE'];
+		$arrNewPages = array();
+		$arrRemovePages = array();
 
-		// Neues Teil!
+		// Get all tl_metamodel_searchable_pages.
 		$objSearchablePages = Database::getInstance()
 				->prepare('SELECT * FROM tl_metamodel_searchable_pages')
 				->execute();
@@ -250,6 +275,8 @@ class TableMetaModelSearchablePages extends Backend
 
 			// Okay load the parameters, build all combinations and build the jump to.
 			$arrParameters = deserialize($objSearchablePages->parameter);
+			$arrAllParameter = $this->getValues(null, $objSearchablePages->pid, true);
+			$arrParameters = $this->replaceAll($arrParameters, $arrAllParameter);
 
 			foreach ($arrRenderSettingJumpTo as $arrSingleJumpTo)
 			{
@@ -258,13 +285,13 @@ class TableMetaModelSearchablePages extends Backend
 				{
 					continue;
 				}
-				
+
 				// If we have a sitemap just generate the links for the current language.
-				if($blnSitemap && ($arrSingleJumpTo['langcode'] != $strLanguage))
+				if ($blnSitemap && ($arrSingleJumpTo['langcode'] != $strLanguage))
 				{
 					continue;
 				}
-				
+
 				// Set current language to the jump to.
 				$GLOBALS['TL_LANGUAGE'] = $arrSingleJumpTo['langcode'];
 
@@ -275,20 +302,20 @@ class TableMetaModelSearchablePages extends Backend
 
 					/** var IMetaModelItems $objItems */
 					$objItems = $objMetaModel->findByFilter($objItemFilter);
-					
+
 					foreach ($objItems as $objItem)
 					{
 						/** var MetaModelItem $objItem */
-						$arrJumpTo		 = $objItem->buildJumpToLink($objRenderSettings);
+						$arrJumpTo = $objItem->buildJumpToLink($objRenderSettings);
 						// FIXME: determine real url as we might have a domain specified in the root page.
-						$arrNewPages[]	 = $this->getPageBaseUrls($arrSingleJumpTo['langcode']) . $arrJumpTo['url'];
+						$arrNewPages[] = $this->getPageBaseUrls($arrSingleJumpTo['langcode']) . $arrJumpTo['url'];
 					}
 				}
 			}
 		}
-		
-		$arrNewPages = array_unique($arrNewPages);
 
+		$arrNewPages = array_unique($arrNewPages);
+		
 		$GLOBALS['TL_LANGUAGE'] = $strMasterLanguage;
 
 		return array_merge($arrPages, $arrNewPages);
@@ -297,6 +324,38 @@ class TableMetaModelSearchablePages extends Backend
 	////////////////////////////////////////////////////////////////////////////
 	// Helper
 	////////////////////////////////////////////////////////////////////////////
+
+	/**
+	 * Search for the '%%all%%' value an replace it with all values.
+	 * 
+	 * @param array $arrCurrentList
+	 * @param array $arrAllList
+	 * @return array
+	 */
+	protected function replaceAll($arrCurrentList, $arrAllList)
+	{
+		foreach ($arrCurrentList as $strParamKey => $arrPairs)
+		{
+			foreach ($arrPairs['values'] as $arrValues)
+			{
+				if ($arrValues['type'] == '%%all%%')
+				{
+					// Removae all old entries.
+					unset($arrCurrentList[$strParamKey]['values']);
+					
+					// Add all new values.
+					foreach ($arrAllList[$arrPairs['parameter']] as $arrNewValue)
+					{
+						$arrCurrentList[$strParamKey]['values'][] = array('type' => $arrNewValue);
+					}
+
+					break;
+				}
+			}
+		}
+
+		return $arrCurrentList;
+	}
 
 	/**
 	 * Get the base url.
