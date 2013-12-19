@@ -102,6 +102,66 @@ class MetaModelsUpgradeHandler
 	{
 		self::upgradeJumpTo();
 		self::upgradeDcaSettingsPublished();
+		
+		self::performNonCore();
+	}
+	
+	/**
+	 * Handle all non core upgrade handlers.
+	 * 
+	 * Introduced: version 1.0.X TODO: @SH set version when done.
+	 * 
+	 * Supports:
+	 * $GLOBALS['METAMODELS_UPGRADE'][] = array('ClassName', 'staticMethod');
+	 * $GLOBALS['METAMODELS_UPGRADE'][] = array('ClassName', 'method');
+	 * $GLOBALS['METAMODELS_UPGRADE'][] = array('SingletonClassName', 'method');
+	 */
+	protected static function performNonCore()
+	{
+		foreach ($GLOBALS['METAMODELS_UPGRADE'] as $callable)
+		{
+			$callback = static::evaluateCallback($callable);
+
+			call_user_func_array($callback, $args);
+		}
+	}
+
+	/**
+	 * Evaluate the callback and create an object instance if required and possible.
+	 *
+	 * @param array|callable $callback The callback to invoke.
+	 *
+	 * @return array|callable
+	 */
+	protected static function evaluateCallback($callback)
+	{
+		if (is_array($callback) && count($callback) == 2 && is_string($callback[0]) && is_string($callback[1]))
+		{
+			$class = new \ReflectionClass($callback[0]);
+
+			// Ff the method is static, do not create an instance.
+			if ($class->hasMethod($callback[1]) && $class->getMethod($callback[1])->isStatic())
+			{
+				return $callback;
+			}
+
+			// Fetch singleton instance.
+			if ($class->hasMethod('getInstance'))
+			{
+				$getInstanceMethod = $class->getMethod('getInstance');
+
+				if ($getInstanceMethod->isStatic())
+				{
+					$callback[0] = $getInstanceMethod->invoke(null);
+					return $callback;
+				}
+			}
+
+			// Create a new instance.
+			$callback[0] = $class->newInstance();
+		}
+
+		return $callback;
 	}
 }
 
