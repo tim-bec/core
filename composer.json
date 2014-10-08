@@ -50,32 +50,38 @@
 		"contao-community-alliance/dc-general": "2.0.*@dev",
 		"contao-community-alliance/backports-initialize-system": "~1.0",
 		"menatwork/contao-multicolumnwizard": "3.2.*@dev",
-		"bit3/contao-meta-palettes": "1.7.*@dev",
-		"discordier/justtextwidgets": ">=0.5",
-		"contao-community-alliance/url-builder": "~1.0"
+		"bit3/contao-meta-palettes": "~1.7",
+		"discordier/justtextwidgets": "~0.5",
+		"contao-community-alliance/url-builder": "~1.1"
 	},
 	"require-dev": {
-		"metamodels/php-coding-standard": "dev-master",
-		"cyberspectrum/contao-toolbox": "dev-master",
-		"phpunit/phpunit": ">=3.7.10,<4-dev"
+		"cyberspectrum/contao-toolbox": "~0.6",
+		"phpunit/phpunit": "~3.7",
+		"sebastian/phpcpd": "~1.4",
+		"phploc/phploc": "~2.0",
+		"phpmd/phpmd": "~2.0",
+		"squizlabs/php_codesniffer": "~1.0",
+		"contao-community-alliance/build-system-tool-branch-alias-validation": "~1.0",
+		"contao-community-alliance/build-system": "~1.0",
+		"contao-community-alliance/coding-standard": "~1.0"
 	},
 	"conflict": {
 		"contao/core": "3.0.*"
 	},
 	"autoload": {
 		"psr-0": {
-			"MetaModels": "src/system/modules/metamodels"
+			"MetaModels": "src"
 		}
 	},
 	"extra": {
 		"contao": {
 			"sources": {
-				"src/system/modules/metamodels": "system/modules/metamodels"
+				"contao": "system/modules/metamodels"
 			},
 			"transifex": {
 				"project": "metamodels",
 				"prefix": "core-",
-				"languages_cto": "src/system/modules/metamodels/languages",
+				"languages_cto": "contao/languages",
 				"languages_tx": ".tx"
 			}
 		},
